@@ -5,7 +5,7 @@ import '../models/app_settings.dart';
 import '../services/storage_service.dart';
 
 class AppProvider extends ChangeNotifier {
-  final StorageService _storage = StorageService.getInstance() as StorageService;
+  StorageService? _storage;
   
   UserStats _userStats = UserStats();
   AppSettings _settings = AppSettings();
@@ -14,14 +14,18 @@ class AppProvider extends ChangeNotifier {
   UserStats get userStats => _userStats;
   AppSettings get settings => _settings;
   bool get isLoading => _isLoading;
+  StorageService get storage {
+    _storage ??= StorageService._();
+    return _storage!;
+  }
 
   Future<void> initialize() async {
     _isLoading = true;
     notifyListeners();
 
-    final storage = await StorageService.getInstance();
-    _userStats = await storage.getUserStats();
-    _settings = await storage.getSettings();
+    _storage = await StorageService.getInstance();
+    _userStats = await _storage!.getUserStats();
+    _settings = await _storage!.getSettings();
 
     _isLoading = false;
     notifyListeners();
