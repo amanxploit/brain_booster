@@ -145,7 +145,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👨‍💻 Author
 
-**amanxploit** - [GitHub](https://github.com/amanxploit)
+**amanxploit** - [GitHub](https://github.com/amanxploit) | [Instagram](https://instagram.com/aman.coder.py)
 
 ---
 
