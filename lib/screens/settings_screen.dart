@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../models/math_question.dart';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -11,7 +12,7 @@ class SettingsScreen extends StatelessWidget {
     return Consumer<AppProvider>(
       builder: (context, appProvider, _) {
         final settings = appProvider.settings;
-        
+
         return Scaffold(
           appBar: AppBar(
             title: const Text('Settings'),
@@ -23,180 +24,142 @@ class SettingsScreen extends StatelessWidget {
               // Appearance Section
               _buildSectionHeader(context, 'Appearance'),
               const SizedBox(height: 12),
-              _buildSettingTile(
-                context,
-                title: 'Dark Mode',
-                subtitle: 'Use dark theme',
-                leading: Icon(
-                  settings.isDarkMode ? Icons.dark_mode : Icons.light_mode,
-                  color: Theme.of(context).colorScheme.primary,
+              _buildSettingsCard(context, [
+                _buildSwitchTile(
+                  context,
+                  'Dark Mode',
+                  'Use dark theme',
+                  Icons.dark_mode,
+                  settings.isDarkMode,
+                  (value) => appProvider.toggleDarkMode(),
                 ),
-                trailing: Switch(
-                  value: settings.isDarkMode,
-                  onChanged: (_) => appProvider.toggleDarkMode(),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  context,
+                  'Sound Effects',
+                  'Play sounds for correct/incorrect answers',
+                  Icons.volume_up,
+                  settings.soundEnabled,
+                  (value) => appProvider.updateSettings(settings.copyWith(soundEnabled: value)),
                 ),
-              ),
+                const Divider(height: 1),
+                _buildSwitchTile(
+                  context,
+                  'Vibration',
+                  'Vibrate on answer submission',
+                  Icons.vibration,
+                  settings.vibrationEnabled,
+                  (value) => appProvider.updateSettings(settings.copyWith(vibrationEnabled: value)),
+                ),
+              ]),
               const SizedBox(height: 24),
-              
-              // Sound & Vibration Section
-              _buildSectionHeader(context, 'Sound & Feedback'),
-              const SizedBox(height: 12),
-              _buildSettingTile(
-                context,
-                title: 'Sound Effects',
-                subtitle: 'Play sounds for correct/incorrect answers',
-                leading: Icon(
-                  settings.soundEnabled ? Icons.volume_up : Icons.volume_off,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                trailing: Switch(
-                  value: settings.soundEnabled,
-                  onChanged: (_) => _toggleSound(appProvider, settings),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildSettingTile(
-                context,
-                title: 'Vibration',
-                subtitle: 'Vibrate on answer submission',
-                leading: Icon(
-                  settings.vibrationEnabled ? Icons.vibration : Icons.vibration_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                trailing: Switch(
-                  value: settings.vibrationEnabled,
-                  onChanged: (_) => _toggleVibration(appProvider, settings),
-                ),
-              ),
-              const SizedBox(height: 24),
-              
+
               // Game Settings Section
-              _buildSectionHeader(context, 'Game Preferences'),
+              _buildSectionHeader(context, 'Game Settings'),
               const SizedBox(height: 12),
-              _buildSettingTile(
-                context,
-                title: 'Questions per Session',
-                subtitle: 'Number of questions in each game',
-                leading: Icon(
-                  Icons.quiz_outlined,
-                  color: Theme.of(context).colorScheme.primary,
+              _buildSettingsCard(context, [
+                _buildSliderTile(
+                  context,
+                  'Questions per Session',
+                  '${settings.questionsPerSession} questions',
+                  Icons.quiz,
+                  settings.questionsPerSession.toDouble(),
+                  5,
+                  50,
+                  1,
+                  (value) => appProvider.updateSettings(settings.copyWith(questionsPerSession: value.round())),
                 ),
-                trailing: DropdownButton<int>(
-                  value: settings.questionsPerSession,
-                  items: [5, 10, 15, 20, 25, 30, 40, 50]
-                      .map((e) => DropdownMenuItem(value: e, child: Text('$e')))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      _updateQuestionsPerSession(appProvider, settings, value);
-                    }
-                  },
+                const Divider(height: 1),
+                _buildSliderTile(
+                  context,
+                  'Time Limit per Question',
+                  settings.questionTimeLimit > 0 ? '${settings.questionTimeLimit} seconds' : 'No limit',
+                  Icons.timer,
+                  settings.questionTimeLimit.toDouble(),
+                  0,
+                  120,
+                  5,
+                  (value) => appProvider.updateSettings(settings.copyWith(questionTimeLimit: value.round())),
                 ),
-              ),
-              const SizedBox(height: 8),
-              _buildSettingTile(
-                context,
-                title: 'Question Time Limit',
-                subtitle: 'Seconds per question (0 = no limit)',
-                leading: Icon(
-                  Icons.timer_outlined,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                trailing: DropdownButton<int>(
-                  value: settings.questionTimeLimit,
-                  items: [0, 10, 15, 20, 30, 45, 60]
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e == 0 ? 'No Limit' : '${e}s')))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      _updateTimeLimit(appProvider, settings, value);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildSettingTile(
-                context,
-                title: 'Preferred Operation',
-                subtitle: 'Default operation for new games',
-                leading: Icon(
+              ]),
+              const SizedBox(height: 24),
+
+              // Default Game Settings
+              _buildSectionHeader(context, 'Default Game Mode'),
+              const SizedBox(height: 12),
+              _buildSettingsCard(context, [
+                _buildDropdownTile<MathOperation>(
+                  context,
+                  'Default Operation',
+                  'Choose the default math operation',
                   Icons.calculate,
-                  color: Theme.of(context).colorScheme.primary,
+                  settings.preferredOperation,
+                  MathOperation.values,
+                  (op) => op.name,
+                  (value) => appProvider.updateSettings(settings.copyWith(preferredOperation: value!)),
                 ),
-                trailing: DropdownButton<MathOperation>(
-                  value: settings.preferredOperation,
-                  items: MathOperation.values
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e.displayName)))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      _updatePreferredOperation(appProvider, settings, value);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildSettingTile(
-                context,
-                title: 'Preferred Difficulty',
-                subtitle: 'Default difficulty for new games',
-                leading: Icon(
+                const Divider(height: 1),
+                _buildDropdownTile<Difficulty>(
+                  context,
+                  'Default Difficulty',
+                  'Choose the default difficulty level',
                   Icons.trending_up,
-                  color: Theme.of(context).colorScheme.primary,
+                  settings.preferredDifficulty,
+                  Difficulty.values,
+                  (diff) => diff.name,
+                  (value) => appProvider.updateSettings(settings.copyWith(preferredDifficulty: value!)),
                 ),
-                trailing: DropdownButton<Difficulty>(
-                  value: settings.preferredDifficulty,
-                  items: Difficulty.values
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e.displayName)))
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      _updatePreferredDifficulty(appProvider, settings, value);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(height: 32),
-              
-              // Data Section
+              ]),
+              const SizedBox(height: 24),
+
+              // Data Management
               _buildSectionHeader(context, 'Data Management'),
               const SizedBox(height: 12),
-              _buildSettingTile(
-                context,
-                title: 'Reset Statistics',
-                subtitle: 'Clear all progress and start fresh',
-                leading: const Icon(Icons.delete_forever, color: Colors.red),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showResetConfirmation(context, appProvider),
-              ),
-              const SizedBox(height: 8),
-              _buildSettingTile(
-                context,
-                title: 'Export Data',
-                subtitle: 'Export your game history and stats',
-                leading: Icon(Icons.download, color: Theme.of(context).colorScheme.primary),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => _showExportDialog(context, appProvider),
-              ),
-              const SizedBox(height: 32),
-              
-              // About Section
+              _buildSettingsCard(context, [
+                _buildActionTile(
+                  context,
+                  'Export Data',
+                  'Export your stats as JSON',
+                  Icons.download,
+                  () => _exportData(context, appProvider),
+                ),
+                const Divider(height: 1),
+                _buildActionTile(
+                  context,
+                  'Reset All Data',
+                  'Clear all statistics and history',
+                  Icons.delete_forever,
+                  () => _confirmReset(context, appProvider),
+                  isDestructive: true,
+                ),
+              ]),
+              const SizedBox(height: 24),
+
+              // About
               _buildSectionHeader(context, 'About'),
               const SizedBox(height: 12),
-              _buildSettingTile(
-                context,
-                title: 'Version',
-                subtitle: '1.0.0',
-                leading: Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
-              ),
-              const SizedBox(height: 8),
-              _buildSettingTile(
-                context,
-                title: 'Privacy Policy',
-                subtitle: 'View our privacy policy',
-                leading: Icon(Icons.privacy_tip_outlined, color: Theme.of(context).colorScheme.primary),
-                trailing: const Icon(Icons.chevron_right),
-              ),
+              _buildSettingsCard(context, [
+                _buildInfoTile(context, 'Version', '1.0.0', Icons.info),
+                const Divider(height: 1),
+                _buildInfoTile(context, 'Built with', 'Flutter', Icons.code),
+                const Divider(height: 1),
+                _buildActionTile(
+                  context,
+                  'Rate App',
+                  'Rate us on the Play Store',
+                  Icons.star_rate,
+                  () {},
+                ),
+                const Divider(height: 1),
+                _buildActionTile(
+                  context,
+                  'Privacy Policy',
+                  'View our privacy policy',
+                  Icons.privacy_tip,
+                  () {},
+                ),
+              ]),
+              const SizedBox(height: 32),
             ],
           ),
         );
@@ -205,136 +168,234 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-        fontWeight: FontWeight.w700,
-        color: Theme.of(context).colorScheme.primary,
-      ),
-    );
-  }
-
-  Widget _buildSettingTile(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required Widget leading,
-    Widget? trailing,
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).dividerTheme.color ?? Colors.transparent,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: leading,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).textTheme.bodySmall?.color,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (trailing != null) trailing,
-          ],
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).colorScheme.primary,
         ),
       ),
     );
   }
 
-  void _toggleSound(AppProvider appProvider, AppSettings settings) {
-    appProvider.updateSettings(settings.copyWith(soundEnabled: !settings.soundEnabled));
-  }
-
-  void _toggleVibration(AppProvider appProvider, AppSettings settings) {
-    appProvider.updateSettings(settings.copyWith(vibrationEnabled: !settings.vibrationEnabled));
-  }
-
-  void _updateQuestionsPerSession(AppProvider appProvider, AppSettings settings, int value) {
-    appProvider.updateSettings(settings.copyWith(questionsPerSession: value));
-  }
-
-  void _updateTimeLimit(AppProvider appProvider, AppSettings settings, int value) {
-    appProvider.updateSettings(settings.copyWith(questionTimeLimit: value));
-  }
-
-  void _updatePreferredOperation(AppProvider appProvider, AppSettings settings, MathOperation value) {
-    appProvider.updateSettings(settings.copyWith(preferredOperation: value));
-  }
-
-  void _updatePreferredDifficulty(AppProvider appProvider, AppSettings settings, Difficulty value) {
-    appProvider.updateSettings(settings.copyWith(preferredDifficulty: value));
-  }
-
-  void _showResetConfirmation(BuildContext context, AppProvider appProvider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset All Statistics?'),
-        content: const Text(
-          'This will permanently delete all your progress, including game history, streaks, and scores. This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+  Widget _buildSettingsCard(BuildContext context, List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? Colors.transparent),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              appProvider.resetStats();
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Statistics reset successfully')),
-              );
-            },
-            child: const Text('Reset'),
+        ],
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _buildSwitchTile(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    bool value,
+    ValueChanged<bool> onChanged,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleMedium),
+                    Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              Switch(
+                value: value,
+                onChanged: onChanged,
+                activeColor: Theme.of(context).colorScheme.primary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSliderTile(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    double value,
+    double min,
+    double max,
+    double divisions,
+    ValueChanged<double> onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+              ),
+              Text(
+                subtitle,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: value,
+            min: min,
+            max: max,
+            divisions: divisions == 1 ? null : ((max - min) / divisions).round(),
+            label: value == 0 ? 'No limit' : value.toInt().toString(),
+            onChanged: onChanged,
+            activeColor: Theme.of(context).colorScheme.primary,
           ),
         ],
       ),
     );
   }
 
-  void _showExportDialog(BuildContext context, AppProvider appProvider) {
+  Widget _buildDropdownTile<T>(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    T value,
+    List<T> items,
+    String Function(T) getLabel,
+    ValueChanged<T?> onChanged,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: DropdownButtonFormField<T>(
+        value: value,
+        decoration: InputDecoration(
+          labelText: title,
+          hintText: subtitle,
+          prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
+          border: InputBorder.none,
+        ),
+        items: items.map((item) => DropdownMenuItem(
+          value: item,
+          child: Text(getLabel(item)),
+        )).toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _buildActionTile(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    VoidCallback onTap, {
+    bool isDestructive = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, color: isDestructive ? Colors.red : Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: isDestructive ? Colors.red : null,
+                      ),
+                    ),
+                    Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.outline),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoTile(BuildContext context, String title, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 16),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const Spacer(),
+          Text(value, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  void _exportData(BuildContext context, AppProvider appProvider) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Export feature coming soon!')),
+    );
+  }
+
+  void _confirmReset(BuildContext context, AppProvider appProvider) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Export Data'),
-        content: const Text('Export functionality coming soon.'),
+        title: const Text('Reset All Data?'),
+        content: const Text(
+          'This will permanently delete all your statistics, game history, and daily contributions. This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              appProvider.resetStats();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('All data has been reset')),
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Reset'),
           ),
         ],
       ),

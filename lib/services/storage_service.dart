@@ -2,8 +2,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_stats.dart';
 import '../models/math_question.dart';
-import '../models/app_settings.dart';
-import '../models/game_session.dart';
 
 class StorageService {
   static const String _userStatsKey = 'user_stats';
@@ -87,4 +85,151 @@ class StorageService {
   Future<void> clearGameHistory() async {
     await _prefs?.remove(_gameHistoryKey);
   }
+}
+
+class AppSettings {
+  final bool isDarkMode;
+  final bool soundEnabled;
+  final bool vibrationEnabled;
+  final int questionTimeLimit; // in seconds, 0 = no limit
+  final int questionsPerSession;
+  final MathOperation preferredOperation;
+  final Difficulty preferredDifficulty;
+
+  AppSettings({
+    this.isDarkMode = false,
+    this.soundEnabled = true,
+    this.vibrationEnabled = true,
+    this.questionTimeLimit = 30,
+    this.questionsPerSession = 10,
+    this.preferredOperation = MathOperation.addition,
+    this.preferredDifficulty = Difficulty.easy,
+  });
+
+  AppSettings copyWith({
+    bool? isDarkMode,
+    bool? soundEnabled,
+    bool? vibrationEnabled,
+    int? questionTimeLimit,
+    int? questionsPerSession,
+    MathOperation? preferredOperation,
+    Difficulty? preferredDifficulty,
+  }) =>
+      AppSettings(
+        isDarkMode: isDarkMode ?? this.isDarkMode,
+        soundEnabled: soundEnabled ?? this.soundEnabled,
+        vibrationEnabled: vibrationEnabled ?? this.vibrationEnabled,
+        questionTimeLimit: questionTimeLimit ?? this.questionTimeLimit,
+        questionsPerSession: questionsPerSession ?? this.questionsPerSession,
+        preferredOperation: preferredOperation ?? this.preferredOperation,
+        preferredDifficulty: preferredDifficulty ?? this.preferredDifficulty,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'isDarkMode': isDarkMode,
+        'soundEnabled': soundEnabled,
+        'vibrationEnabled': vibrationEnabled,
+        'questionTimeLimit': questionTimeLimit,
+        'questionsPerSession': questionsPerSession,
+        'preferredOperation': preferredOperation.index,
+        'preferredDifficulty': preferredDifficulty.index,
+      };
+
+  factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
+        isDarkMode: json['isDarkMode'] ?? false,
+        soundEnabled: json['soundEnabled'] ?? true,
+        vibrationEnabled: json['vibrationEnabled'] ?? true,
+        questionTimeLimit: json['questionTimeLimit'] ?? 30,
+        questionsPerSession: json['questionsPerSession'] ?? 10,
+        preferredOperation: MathOperation.values[json['preferredOperation'] ?? 0],
+        preferredDifficulty: Difficulty.values[json['preferredDifficulty'] ?? 0],
+      );
+}
+
+class GameSession {
+  final String id;
+  final DateTime date;
+  final MathOperation operation;
+  final Difficulty difficulty;
+  final int totalQuestions;
+  final int correctAnswers;
+  final int wrongAnswers;
+  final int totalScore;
+  final int timeSpent; // in seconds
+  final List<QuestionResult> questionResults;
+
+  GameSession({
+    required this.id,
+    required this.date,
+    required this.operation,
+    required this.difficulty,
+    required this.totalQuestions,
+    required this.correctAnswers,
+    required this.wrongAnswers,
+    required this.totalScore,
+    required this.timeSpent,
+    required this.questionResults,
+  });
+
+  double get accuracy => totalQuestions > 0 ? (correctAnswers / totalQuestions) * 100 : 0.0;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'date': date.toIso8601String(),
+        'operation': operation.index,
+        'difficulty': difficulty.index,
+        'totalQuestions': totalQuestions,
+        'correctAnswers': correctAnswers,
+        'wrongAnswers': wrongAnswers,
+        'totalScore': totalScore,
+        'timeSpent': timeSpent,
+        'questionResults': questionResults.map((e) => e.toJson()).toList(),
+      };
+
+  factory GameSession.fromJson(Map<String, dynamic> json) => GameSession(
+        id: json['id'],
+        date: DateTime.parse(json['date']),
+        operation: MathOperation.values[json['operation']],
+        difficulty: Difficulty.values[json['difficulty']],
+        totalQuestions: json['totalQuestions'],
+        correctAnswers: json['correctAnswers'],
+        wrongAnswers: json['wrongAnswers'],
+        totalScore: json['totalScore'],
+        timeSpent: json['timeSpent'],
+        questionResults: (json['questionResults'] as List)
+            .map((e) => QuestionResult.fromJson(e))
+            .toList(),
+      );
+}
+
+class QuestionResult {
+  final String questionId;
+  final MathQuestion question;
+  final int selectedAnswer;
+  final bool isCorrect;
+  final int timeSpent;
+
+  QuestionResult({
+    required this.questionId,
+    required this.question,
+    required this.selectedAnswer,
+    required this.isCorrect,
+    required this.timeSpent,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'questionId': questionId,
+        'question': question.toJson(),
+        'selectedAnswer': selectedAnswer,
+        'isCorrect': isCorrect,
+        'timeSpent': timeSpent,
+      };
+
+  factory QuestionResult.fromJson(Map<String, dynamic> json) => QuestionResult(
+        questionId: json['questionId'],
+        question: MathQuestion.fromJson(json['question']),
+        selectedAnswer: json['selectedAnswer'],
+        isCorrect: json['isCorrect'],
+        timeSpent: json['timeSpent'],
+      );
 }

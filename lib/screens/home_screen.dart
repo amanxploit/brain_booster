@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
+import '../providers/game_provider.dart';
 import '../models/math_question.dart';
+import '../models/user_stats.dart';
 import '../widgets/widgets.dart';
 import '../theme/app_theme.dart';
 

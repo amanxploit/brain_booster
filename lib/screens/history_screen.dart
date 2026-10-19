@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/app_provider.dart';
-import '../models/game_session.dart';
+import '../services/storage_service.dart';
+import '../models/math_question.dart';
 import '../theme/app_theme.dart';
 
 class HistoryScreen extends StatelessWidget {
@@ -25,7 +26,7 @@ class HistoryScreen extends StatelessWidget {
             ],
           ),
           body: FutureBuilder<List<GameSession>>(
-            future: appProvider.storage.getGameHistory(),
+            future: _loadHistory(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -68,6 +69,11 @@ class HistoryScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<List<GameSession>> _loadHistory() async {
+    final storage = await StorageService.getInstance();
+    return storage.getGameHistory();
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -163,7 +169,7 @@ class HistoryScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      session.operation.displayName,
+                      session.operation.name.toUpperCase(),
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -184,7 +190,7 @@ class HistoryScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  session.difficulty.displayName,
+                  session.difficulty.name.toUpperCase(),
                   style: TextStyle(
                     color: _getDifficultyColor(session.difficulty),
                     fontWeight: FontWeight.w600,
@@ -316,7 +322,7 @@ class HistoryScreen extends StatelessWidget {
         return Colors.orange;
       case MathOperation.division:
         return Colors.red;
-      case MathOperation.mixed:
+      case MathOperation.modulo:
         return Colors.purple;
     }
   }
@@ -331,7 +337,7 @@ class HistoryScreen extends StatelessWidget {
         return Icons.close;
       case MathOperation.division:
         return Icons.percent;
-      case MathOperation.mixed:
+      case MathOperation.modulo:
         return Icons.shuffle;
     }
   }

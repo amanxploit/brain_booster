@@ -22,8 +22,8 @@ class OperationCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        width: 100,
-        padding: const EdgeInsets.all(16),
+        width: 90,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         decoration: BoxDecoration(
           color: isSelected ? color : Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(16),
@@ -49,20 +49,21 @@ class OperationCard extends StatelessWidget {
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               operation.symbol,
               style: TextStyle(
-                fontSize: 32,
+                fontSize: 28,
                 fontWeight: FontWeight.w700,
                 color: isSelected ? Colors.white : color,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Text(
               operation.name,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: isSelected ? Colors.white.withOpacity(0.9) : color,
               ),
