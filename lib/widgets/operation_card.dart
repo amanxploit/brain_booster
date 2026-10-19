@@ -68,6 +68,8 @@ class OperationCard extends StatelessWidget {
                 color: isSelected ? Colors.white.withOpacity(0.9) : color,
               ),
               textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ],
         ),

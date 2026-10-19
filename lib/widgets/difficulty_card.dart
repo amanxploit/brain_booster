@@ -40,6 +40,8 @@ class DifficultyCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
                 color: isSelected ? Colors.white : color,
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
             const SizedBox(height: 4),
             Text(
@@ -49,6 +51,8 @@ class DifficultyCard extends StatelessWidget {
                 fontWeight: FontWeight.w500,
                 color: isSelected ? Colors.white.withOpacity(0.8) : color.withOpacity(0.7),
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
             const SizedBox(height: 2),
             Text(
@@ -58,6 +62,8 @@ class DifficultyCard extends StatelessWidget {
                 fontWeight: FontWeight.w500,
                 color: isSelected ? Colors.white.withOpacity(0.7) : color.withOpacity(0.6),
               ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ],
         ),

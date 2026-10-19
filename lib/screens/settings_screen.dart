@@ -302,10 +302,15 @@ class SettingsScreen extends StatelessWidget {
           hintText: subtitle,
           prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
           border: InputBorder.none,
+          isDense: true,
         ),
         items: items.map((item) => DropdownMenuItem(
           value: item,
-          child: Text(getLabel(item)),
+          child: Text(
+            getLabel(item),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
         )).toList(),
         onChanged: onChanged,
       ),

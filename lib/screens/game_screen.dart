@@ -129,7 +129,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ],
           ),
           body: SafeArea(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
@@ -151,6 +151,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   
                   // Action Button
                   _buildActionButton(context, gameProvider, isLastQuestion),
+                  
+                  // Bottom padding for safe scrolling
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -167,7 +170,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -205,7 +208,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 runSpacing: 10,
                 children: MathOperation.values.map((op) {
                   return ChoiceChip(
-                    label: Text('${op.symbol} ${op.name}'),
+                    label: Text(
+                      '${op.symbol} ${op.name}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     selected: gameProvider.selectedOperation == op,
                     onSelected: (_) => gameProvider.setOperation(op),
                     selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
@@ -231,7 +237,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 runSpacing: 10,
                 children: Difficulty.values.map((diff) {
                   return ChoiceChip(
-                    label: Text(diff.name),
+                    label: Text(
+                      diff.name,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     selected: gameProvider.selectedDifficulty == diff,
                     onSelected: (_) => gameProvider.setDifficulty(diff),
                     selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
@@ -271,7 +280,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ],
               ),
               
-              const Spacer(),
+              const SizedBox(height: 32),
               
               // Start Button
               SizedBox(
@@ -291,6 +300,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
+              
+              const SizedBox(height: 16),
             ],
           ),
         ),

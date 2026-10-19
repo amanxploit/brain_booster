@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:uuid/uuid.dart';
 
 enum MathOperation {
@@ -54,36 +55,42 @@ class MathQuestion {
   factory MathQuestion.generate({
     required MathOperation operation,
     required Difficulty difficulty,
+    Random? random,
   }) {
-    final random = DateTime.now().millisecondsSinceEpoch % 1000;
+    final rng = random ?? Random.secure();
     int operand1, operand2, correctAnswer;
     List<int> options = [];
 
+    int randomInRange(int min, int max) {
+      return min + rng.nextInt(max - min + 1);
+    }
+
     switch (operation) {
       case MathOperation.addition:
-        operand1 = difficulty.minValue + (random % (difficulty.maxValue - difficulty.minValue + 1));
-        operand2 = difficulty.minValue + ((random * 7) % (difficulty.maxValue - difficulty.minValue + 1));
+        operand1 = randomInRange(difficulty.minValue, difficulty.maxValue);
+        operand2 = randomInRange(difficulty.minValue, difficulty.maxValue);
         correctAnswer = operand1 + operand2;
         break;
       case MathOperation.subtraction:
-        operand1 = difficulty.minValue + (random % (difficulty.maxValue - difficulty.minValue + 1));
-        operand2 = difficulty.minValue + ((random * 11) % (operand1 - difficulty.minValue + 1));
+        operand1 = randomInRange(difficulty.minValue, difficulty.maxValue);
+        operand2 = randomInRange(difficulty.minValue, operand1);
         correctAnswer = operand1 - operand2;
         break;
       case MathOperation.multiplication:
-        operand1 = difficulty.minValue + (random % ((difficulty.maxValue ~/ 10) - difficulty.minValue + 1));
-        operand2 = difficulty.minValue + ((random * 13) % ((difficulty.maxValue ~/ 10) - difficulty.minValue + 1));
+        final maxFactor = (difficulty.maxValue / 10).floor();
+        operand1 = randomInRange(difficulty.minValue, maxFactor.clamp(difficulty.minValue, 20));
+        operand2 = randomInRange(difficulty.minValue, maxFactor.clamp(difficulty.minValue, 20));
         correctAnswer = operand1 * operand2;
         break;
       case MathOperation.division:
-        operand2 = difficulty.minValue + (random % ((difficulty.maxValue ~/ 10) - difficulty.minValue + 1));
+        operand2 = randomInRange(difficulty.minValue, (difficulty.maxValue / 10).floor().clamp(difficulty.minValue, 20));
         if (operand2 == 0) operand2 = 1;
-        correctAnswer = difficulty.minValue + ((random * 17) % ((difficulty.maxValue ~/ 10) - difficulty.minValue + 1));
+        correctAnswer = randomInRange(difficulty.minValue, (difficulty.maxValue / 10).floor().clamp(difficulty.minValue, 20));
         operand1 = correctAnswer * operand2;
         break;
       case MathOperation.modulo:
-        operand1 = difficulty.minValue + (random % (difficulty.maxValue - difficulty.minValue + 1));
-        operand2 = difficulty.minValue + ((random * 19) % (difficulty.maxValue - difficulty.minValue + 1));
+        operand1 = randomInRange(difficulty.minValue, difficulty.maxValue);
+        operand2 = randomInRange(difficulty.minValue, difficulty.maxValue);
         if (operand2 == 0) operand2 = 1;
         correctAnswer = operand1 % operand2;
         break;
@@ -93,14 +100,14 @@ class MathQuestion {
     options.add(correctAnswer);
     final wrongAnswers = <int>{};
     while (wrongAnswers.length < 3) {
-      int offset = (random * 23 + wrongAnswers.length * 5) % 20 - 10;
+      int offset = rng.nextInt(20) - 10; // -10 to +9
       int wrong = correctAnswer + offset;
       if (wrong != correctAnswer && wrong >= 0 && !wrongAnswers.contains(wrong)) {
         wrongAnswers.add(wrong);
       }
     }
     options.addAll(wrongAnswers);
-    options.shuffle();
+    options.shuffle(rng);
 
     return MathQuestion(
       operation: operation,

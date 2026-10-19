@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/math_question.dart';
 import '../models/user_stats.dart';
@@ -20,6 +21,13 @@ class GameProvider extends ChangeNotifier {
   bool _lastAnswerCorrect = false;
   int _selectedAnswer = -1;
   int _timeSpentOnCurrentQuestion = 0;
+  
+  // Adaptive difficulty tracking
+  int _consecutiveCorrect = 0;
+  int _consecutiveWrong = 0;
+  final Random _random = Random.secure();
+  Difficulty _baseDifficulty = Difficulty.easy;
+  final List<QuestionResult> _questionResults = [];
 
   MathOperation get selectedOperation => _selectedOperation;
   Difficulty get selectedDifficulty => _selectedDifficulty;
@@ -37,8 +45,8 @@ class GameProvider extends ChangeNotifier {
   bool get lastAnswerCorrect => _lastAnswerCorrect;
   int get selectedAnswer => _selectedAnswer;
   int get timeSpentOnCurrentQuestion => _timeSpentOnCurrentQuestion;
-  int get remainingQuestions => _questions.length - _currentQuestionIndex;
-  double get progress => _questions.isEmpty ? 0.0 : (_currentQuestionIndex / _questions.length).clamp(0.0, 1.0);
+  int get remainingQuestions => _questionsPerSession - _currentQuestionIndex;
+  double get progress => _questionsPerSession == 0 ? 0.0 : (_currentQuestionIndex / _questionsPerSession).clamp(0.0, 1.0);
 
   void setOperation(MathOperation operation) {
     _selectedOperation = operation;
@@ -47,6 +55,7 @@ class GameProvider extends ChangeNotifier {
 
   void setDifficulty(Difficulty difficulty) {
     _selectedDifficulty = difficulty;
+    _baseDifficulty = difficulty; // Track the base difficulty
     notifyListeners();
   }
 
@@ -60,14 +69,40 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Difficulty _getAdaptiveDifficulty() {
+    // Adaptive difficulty based on performance
+    if (_consecutiveCorrect >= 3 && _selectedDifficulty.index < Difficulty.values.length - 1) {
+      // Player is doing well, increase difficulty
+      return Difficulty.values[_selectedDifficulty.index + 1];
+    } else if (_consecutiveWrong >= 2 && _selectedDifficulty.index > 0) {
+      // Player is struggling, decrease difficulty
+      return Difficulty.values[_selectedDifficulty.index - 1];
+    }
+    return _selectedDifficulty;
+  }
+
+  void _updateAdaptiveDifficulty(bool isCorrect) {
+    if (isCorrect) {
+      _consecutiveCorrect++;
+      _consecutiveWrong = 0;
+      // Increase difficulty after 3 consecutive correct
+      if (_consecutiveCorrect >= 3 && _selectedDifficulty.index < Difficulty.values.length - 1) {
+        _selectedDifficulty = Difficulty.values[_selectedDifficulty.index + 1];
+        _consecutiveCorrect = 0; // Reset counter after difficulty change
+      }
+    } else {
+      _consecutiveWrong++;
+      _consecutiveCorrect = 0;
+      // Decrease difficulty after 2 consecutive wrong
+      if (_consecutiveWrong >= 2 && _selectedDifficulty.index > 0) {
+        _selectedDifficulty = Difficulty.values[_selectedDifficulty.index - 1];
+        _consecutiveWrong = 0; // Reset counter after difficulty change
+      }
+    }
+  }
+
   void startGame() {
-    _questions = List.generate(
-      _questionsPerSession,
-      (_) => MathQuestion.generate(
-        operation: _selectedOperation,
-        difficulty: _selectedDifficulty,
-      ),
-    );
+    _questions = [];
     _currentQuestionIndex = 0;
     _correctCount = 0;
     _wrongCount = 0;
@@ -77,7 +112,23 @@ class GameProvider extends ChangeNotifier {
     _showResult = false;
     _selectedAnswer = -1;
     _timeSpentOnCurrentQuestion = 0;
+    _consecutiveCorrect = 0;
+    _consecutiveWrong = 0;
+    _baseDifficulty = _selectedDifficulty;
+    
+    // Generate first question
+    _generateNextQuestion();
     notifyListeners();
+  }
+
+  void _generateNextQuestion() {
+    final difficulty = _getAdaptiveDifficulty();
+    final question = MathQuestion.generate(
+      operation: _selectedOperation,
+      difficulty: difficulty,
+      random: _random,
+    );
+    _questions.add(question);
   }
 
   void selectAnswer(int answer) {
@@ -96,11 +147,21 @@ class GameProvider extends ChangeNotifier {
 
     if (isCorrect) {
       _correctCount++;
-      _totalScore += _selectedDifficulty.pointsMultiplier * 10;
+      _totalScore += question.difficulty.pointsMultiplier * 10;
     } else {
       _wrongCount++;
     }
 
+    // Track result for this question
+    _questionResults.add(QuestionResult(
+      questionId: question.id,
+      question: question,
+      selectedAnswer: _selectedAnswer,
+      isCorrect: isCorrect,
+      timeSpent: timeSpent,
+    ));
+
+    _updateAdaptiveDifficulty(isCorrect);
     _showResult = true;
     notifyListeners();
   }
@@ -113,8 +174,11 @@ class GameProvider extends ChangeNotifier {
     _selectedAnswer = -1;
     _timeSpentOnCurrentQuestion = 0;
 
-    if (_currentQuestionIndex >= _questions.length) {
+    if (_currentQuestionIndex >= _questionsPerSession) {
       endGame();
+    } else {
+      // Generate next question with adaptive difficulty
+      _generateNextQuestion();
     }
     notifyListeners();
   }
@@ -126,6 +190,7 @@ class GameProvider extends ChangeNotifier {
 
   void resetGame() {
     _questions = [];
+    _questionResults.clear();
     _currentQuestionIndex = 0;
     _correctCount = 0;
     _wrongCount = 0;
@@ -135,6 +200,9 @@ class GameProvider extends ChangeNotifier {
     _lastAnswerCorrect = false;
     _selectedAnswer = -1;
     _timeSpentOnCurrentQuestion = 0;
+    _consecutiveCorrect = 0;
+    _consecutiveWrong = 0;
+    _selectedDifficulty = _baseDifficulty; // Reset to base difficulty
     notifyListeners();
   }
 
@@ -152,17 +220,7 @@ class GameProvider extends ChangeNotifier {
       wrongAnswers: _wrongCount,
       totalScore: _totalScore,
       timeSpent: timeSpent,
-      questionResults: _questions.asMap().entries.map((entry) {
-        final index = entry.key;
-        final question = entry.value;
-        return QuestionResult(
-          questionId: question.id,
-          question: question,
-          selectedAnswer: index < _questions.length ? _selectedAnswer : -1,
-          isCorrect: index < _correctCount + _wrongCount && _lastAnswerCorrect,
-          timeSpent: timeSpent ~/ _questions.length,
-        );
-      }).toList(),
+      questionResults: List.from(_questionResults),
     );
   }
 
