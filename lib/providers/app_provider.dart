@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user_stats.dart';
 import '../models/math_question.dart';
+import '../models/app_settings.dart';
 import '../services/storage_service.dart';
 
 class AppProvider extends ChangeNotifier {

@@ -94,7 +94,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         final question = gameProvider.currentQuestion;
         if (question == null) return _buildGameSetup(context, gameProvider);
 
-        final isLastQuestion = gameProvider.currentQuestionIndex == gameProvider.questions.length - 1;
+        // In endless mode, there's never a "last question" - keep going until user quits
+        final isLastQuestion = gameProvider.isEndlessMode 
+            ? false 
+            : (gameProvider.currentQuestionIndex == gameProvider.questionsPerSession - 1);
         final progress = gameProvider.progress;
 
         // Start timer when game becomes active
@@ -338,15 +341,41 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       builder: (context) => AlertDialog(
         title: const Text('Questions per Session'),
         content: StatefulBuilder(
-          builder: (context, setState) => Slider(
-            value: gameProvider.questionsPerSession.toDouble(),
-            min: 5,
-            max: 50,
-            divisions: 9,
-            label: gameProvider.questionsPerSession.toString(),
-            onChanged: (value) {
-              setState(() => gameProvider.setQuestionsPerSession(value.round()));
-            },
+          builder: (context, setState) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Endless mode toggle
+              SwitchListTile(
+                title: const Text('Endless Mode'),
+                subtitle: const Text('Play unlimited questions'),
+                value: gameProvider.isEndlessMode,
+                onChanged: (value) {
+                  setState(() => gameProvider.setQuestionsPerSession(value ? 0 : 10));
+                },
+              ),
+              if (!gameProvider.isEndlessMode)
+                Slider(
+                  value: gameProvider.questionsPerSession.toDouble(),
+                  min: 5,
+                  max: 200,
+                  divisions: 39,
+                  label: gameProvider.questionsPerSession.toString(),
+                  onChanged: (value) {
+                    setState(() => gameProvider.setQuestionsPerSession(value.round()));
+                  },
+                ),
+              if (gameProvider.isEndlessMode)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Unlimited questions - difficulty adapts to your performance',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+            ],
           ),
         ),
         actions: [
@@ -400,7 +429,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Question ${gameProvider.currentQuestionIndex + 1} of ${gameProvider.questions.length}',
+              gameProvider.isEndlessMode
+                  ? 'Question ${gameProvider.currentQuestionIndex + 1} (Endless)'
+                  : 'Question ${gameProvider.currentQuestionIndex + 1} of ${gameProvider.questionsPerSession}',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
             Text(

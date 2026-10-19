@@ -15,11 +15,19 @@ void main() async {
   final appProvider = AppProvider();
   await appProvider.initialize();
   
+  final gameProvider = GameProvider();
+  gameProvider.initializeFromSettings(appProvider.settings);
+  
+  // Sync GameProvider when AppProvider settings change
+  appProvider.addListener(() {
+    gameProvider.initializeFromSettings(appProvider.settings);
+  });
+  
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: appProvider),
-        ChangeNotifierProvider(create: (_) => GameProvider()),
+        ChangeNotifierProvider.value(value: gameProvider),
       ],
       child: const BrainBoosterApp(),
     ),

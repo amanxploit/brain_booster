@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/math_question.dart';
-import '../models/user_stats.dart';
+import '../models/app_settings.dart';
 import '../services/storage_service.dart';
 
 class GameProvider extends ChangeNotifier {
@@ -9,6 +9,7 @@ class GameProvider extends ChangeNotifier {
   Difficulty _selectedDifficulty = Difficulty.easy;
   int _questionsPerSession = 10;
   int _timeLimit = 30;
+  bool _isEndlessMode = false;
 
   List<MathQuestion> _questions = [];
   int _currentQuestionIndex = 0;
@@ -33,6 +34,7 @@ class GameProvider extends ChangeNotifier {
   Difficulty get selectedDifficulty => _selectedDifficulty;
   int get questionsPerSession => _questionsPerSession;
   int get timeLimit => _timeLimit;
+  bool get isEndlessMode => _isEndlessMode;
 
   List<MathQuestion> get questions => _questions;
   MathQuestion? get currentQuestion => _currentQuestionIndex < _questions.length ? _questions[_currentQuestionIndex] : null;
@@ -45,8 +47,17 @@ class GameProvider extends ChangeNotifier {
   bool get lastAnswerCorrect => _lastAnswerCorrect;
   int get selectedAnswer => _selectedAnswer;
   int get timeSpentOnCurrentQuestion => _timeSpentOnCurrentQuestion;
-  int get remainingQuestions => _questionsPerSession - _currentQuestionIndex;
-  double get progress => _questionsPerSession == 0 ? 0.0 : (_currentQuestionIndex / _questionsPerSession).clamp(0.0, 1.0);
+  
+  // For endless mode, remaining is always "∞", for limited mode it's the difference
+  int get remainingQuestions => _isEndlessMode ? -1 : (_questionsPerSession - _currentQuestionIndex);
+  
+  // Progress: for endless mode, show based on a reasonable cap (e.g., 50 questions = 100%)
+  double get progress {
+    if (_isEndlessMode) {
+      return (_currentQuestionIndex / 50).clamp(0.0, 1.0);
+    }
+    return _questionsPerSession == 0 ? 0.0 : (_currentQuestionIndex / _questionsPerSession).clamp(0.0, 1.0);
+  }
 
   void setOperation(MathOperation operation) {
     _selectedOperation = operation;
@@ -55,12 +66,14 @@ class GameProvider extends ChangeNotifier {
 
   void setDifficulty(Difficulty difficulty) {
     _selectedDifficulty = difficulty;
-    _baseDifficulty = difficulty; // Track the base difficulty
+    _baseDifficulty = difficulty;
     notifyListeners();
   }
 
   void setQuestionsPerSession(int count) {
-    _questionsPerSession = count.clamp(5, 50);
+    // 0 = endless mode
+    _isEndlessMode = count == 0;
+    _questionsPerSession = count.clamp(0, 999);
     notifyListeners();
   }
 
@@ -69,13 +82,22 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Initialize from AppSettings
+  void initializeFromSettings(AppSettings settings) {
+    _selectedOperation = settings.preferredOperation;
+    _selectedDifficulty = settings.preferredDifficulty;
+    _questionsPerSession = settings.questionsPerSession;
+    _timeLimit = settings.questionTimeLimit;
+    _isEndlessMode = settings.questionsPerSession == 0;
+    _baseDifficulty = settings.preferredDifficulty;
+    notifyListeners();
+  }
+
   Difficulty _getAdaptiveDifficulty() {
-    // Adaptive difficulty based on performance
-    if (_consecutiveCorrect >= 3 && _selectedDifficulty.index < Difficulty.values.length - 1) {
-      // Player is doing well, increase difficulty
+    // Slower adaptive difficulty: increase after 5 correct, decrease after 3 wrong
+    if (_consecutiveCorrect >= 5 && _selectedDifficulty.index < Difficulty.values.length - 1) {
       return Difficulty.values[_selectedDifficulty.index + 1];
-    } else if (_consecutiveWrong >= 2 && _selectedDifficulty.index > 0) {
-      // Player is struggling, decrease difficulty
+    } else if (_consecutiveWrong >= 3 && _selectedDifficulty.index > 0) {
       return Difficulty.values[_selectedDifficulty.index - 1];
     }
     return _selectedDifficulty;
@@ -85,24 +107,25 @@ class GameProvider extends ChangeNotifier {
     if (isCorrect) {
       _consecutiveCorrect++;
       _consecutiveWrong = 0;
-      // Increase difficulty after 3 consecutive correct
-      if (_consecutiveCorrect >= 3 && _selectedDifficulty.index < Difficulty.values.length - 1) {
+      // Increase difficulty after 5 consecutive correct (slower progression)
+      if (_consecutiveCorrect >= 5 && _selectedDifficulty.index < Difficulty.values.length - 1) {
         _selectedDifficulty = Difficulty.values[_selectedDifficulty.index + 1];
-        _consecutiveCorrect = 0; // Reset counter after difficulty change
+        _consecutiveCorrect = 0;
       }
     } else {
       _consecutiveWrong++;
       _consecutiveCorrect = 0;
-      // Decrease difficulty after 2 consecutive wrong
-      if (_consecutiveWrong >= 2 && _selectedDifficulty.index > 0) {
+      // Decrease difficulty after 3 consecutive wrong
+      if (_consecutiveWrong >= 3 && _selectedDifficulty.index > 0) {
         _selectedDifficulty = Difficulty.values[_selectedDifficulty.index - 1];
-        _consecutiveWrong = 0; // Reset counter after difficulty change
+        _consecutiveWrong = 0;
       }
     }
   }
 
   void startGame() {
     _questions = [];
+    _questionResults.clear();
     _currentQuestionIndex = 0;
     _correctCount = 0;
     _wrongCount = 0;
@@ -114,7 +137,6 @@ class GameProvider extends ChangeNotifier {
     _timeSpentOnCurrentQuestion = 0;
     _consecutiveCorrect = 0;
     _consecutiveWrong = 0;
-    _baseDifficulty = _selectedDifficulty;
     
     // Generate first question
     _generateNextQuestion();
@@ -152,7 +174,6 @@ class GameProvider extends ChangeNotifier {
       _wrongCount++;
     }
 
-    // Track result for this question
     _questionResults.add(QuestionResult(
       questionId: question.id,
       question: question,
@@ -174,7 +195,8 @@ class GameProvider extends ChangeNotifier {
     _selectedAnswer = -1;
     _timeSpentOnCurrentQuestion = 0;
 
-    if (_currentQuestionIndex >= _questionsPerSession) {
+    // Check if we should end (only for non-endless mode)
+    if (!_isEndlessMode && _currentQuestionIndex >= _questionsPerSession) {
       endGame();
     } else {
       // Generate next question with adaptive difficulty
@@ -202,7 +224,7 @@ class GameProvider extends ChangeNotifier {
     _timeSpentOnCurrentQuestion = 0;
     _consecutiveCorrect = 0;
     _consecutiveWrong = 0;
-    _selectedDifficulty = _baseDifficulty; // Reset to base difficulty
+    _selectedDifficulty = _baseDifficulty;
     notifyListeners();
   }
 
