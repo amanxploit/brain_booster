@@ -10,6 +10,7 @@ class GameProvider extends ChangeNotifier {
   int _questionsPerSession = 10;
   int _timeLimit = 30;
   bool _isEndlessMode = false;
+  bool _useProgressiveMode = true; // Enable progressive difficulty by default
 
   List<MathQuestion> _questions = [];
   int _currentQuestionIndex = 0;
@@ -41,11 +42,16 @@ class GameProvider extends ChangeNotifier {
   final List<String> _recentQuestions = [];
   static const int _maxRecentQuestions = 20;
 
+  // Progressive difficulty tracking
+  int _totalQuestionsAnswered = 0;
+  int _progressiveCorrectCount = 0;
+
   MathOperation get selectedOperation => _selectedOperation;
   Difficulty get selectedDifficulty => _selectedDifficulty;
   int get questionsPerSession => _questionsPerSession;
   int get timeLimit => _timeLimit;
   bool get isEndlessMode => _isEndlessMode;
+  bool get useProgressiveMode => _useProgressiveMode;
 
   List<MathQuestion> get questions => _questions;
   MathQuestion? get currentQuestion => _currentQuestionIndex < _questions.length ? _questions[_currentQuestionIndex] : null;
@@ -79,6 +85,39 @@ class GameProvider extends ChangeNotifier {
   bool get isOnFire => _currentStreak >= 5; // Visual indicator for hot streak
   bool get isComboActive => _comboCount >= 3; // Visual indicator for combo
 
+  // Progressive difficulty getters
+  int get totalQuestionsAnswered => _totalQuestionsAnswered;
+  int get progressiveCorrectCount => _progressiveCorrectCount;
+  double get progressiveAccuracy => _totalQuestionsAnswered > 0 ? _progressiveCorrectCount / _totalQuestionsAnswered : 1.0;
+  
+  // Get current digit level (1=1-digit, 2=2-digit, etc.)
+  int get currentDigitLevel {
+    if (_totalQuestionsAnswered < 20) return 1;
+    if (_totalQuestionsAnswered < 50) return 2;
+    if (_totalQuestionsAnswered < 100) return 3;
+    if (_totalQuestionsAnswered < 200) return 4;
+    return 5;
+  }
+  
+  String get digitLevelDescription {
+    switch (currentDigitLevel) {
+      case 1: return '1-Digit Numbers';
+      case 2: return '2-Digit Numbers';
+      case 3: return '3-Digit Numbers';
+      case 4: return '4-Digit Numbers';
+      case 5: return '5-Digit Numbers';
+      default: return '1-Digit Numbers';
+    }
+  }
+  
+  int get questionsToNextDigitLevel {
+    if (_totalQuestionsAnswered < 20) return 20 - _totalQuestionsAnswered;
+    if (_totalQuestionsAnswered < 50) return 50 - _totalQuestionsAnswered;
+    if (_totalQuestionsAnswered < 100) return 100 - _totalQuestionsAnswered;
+    if (_totalQuestionsAnswered < 200) return 200 - _totalQuestionsAnswered;
+    return 0;
+  }
+
   void setOperation(MathOperation operation) {
     _selectedOperation = operation;
     notifyListeners();
@@ -87,6 +126,11 @@ class GameProvider extends ChangeNotifier {
   void setDifficulty(Difficulty difficulty) {
     _selectedDifficulty = difficulty;
     _baseDifficulty = difficulty;
+    notifyListeners();
+  }
+
+  void setUseProgressiveMode(bool use) {
+    _useProgressiveMode = use;
     notifyListeners();
   }
 
@@ -164,25 +208,44 @@ class GameProvider extends ChangeNotifier {
     _consecutiveCorrect = 0;
     _consecutiveWrong = 0;
     
+    // Reset progressive tracking
+    _totalQuestionsAnswered = 0;
+    _progressiveCorrectCount = 0;
+    
     // Generate first question
     _generateNextQuestion();
     notifyListeners();
   }
 
   void _generateNextQuestion() {
-    final difficulty = _getAdaptiveDifficulty();
     MathQuestion question;
     int attempts = 0;
     
-    // Generate unique question (avoid recent repetitions)
-    do {
-      question = MathQuestion.generate(
-        operation: _selectedOperation,
-        difficulty: difficulty,
-        random: _random,
-      );
-      attempts++;
-    } while (_recentQuestions.contains(question.questionText) && attempts < 10);
+    if (_useProgressiveMode) {
+      // Use progressive difficulty system
+      do {
+        question = MathQuestion.generateProgressive(
+          operation: _selectedOperation,
+          baseDifficulty: _baseDifficulty,
+          questionsAnswered: _totalQuestionsAnswered,
+          correctAnswers: _progressiveCorrectCount,
+          totalQuestions: _totalQuestionsAnswered,
+          random: _random,
+        );
+        attempts++;
+      } while (_recentQuestions.contains(question.questionText) && attempts < 10);
+    } else {
+      // Use traditional adaptive difficulty
+      final difficulty = _getAdaptiveDifficulty();
+      do {
+        question = MathQuestion.generate(
+          operation: _selectedOperation,
+          difficulty: difficulty,
+          random: _random,
+        );
+        attempts++;
+      } while (_recentQuestions.contains(question.questionText) && attempts < 10);
+    }
     
     _questions.add(question);
   }
@@ -200,6 +263,12 @@ class GameProvider extends ChangeNotifier {
     final isCorrect = _selectedAnswer == question.correctAnswer;
     _lastAnswerCorrect = isCorrect;
     _timeSpentOnCurrentQuestion = timeSpent;
+
+    // Track progressive stats
+    _totalQuestionsAnswered++;
+    if (isCorrect) {
+      _progressiveCorrectCount++;
+    }
 
     if (isCorrect) {
       _correctCount++;
@@ -219,10 +288,23 @@ class GameProvider extends ChangeNotifier {
       
       // XP calculation with bonuses
       int baseXp = question.difficulty.pointsMultiplier * 10;
+      
+      // Apply progressive multiplier for extra XP at higher digit levels
+      double progressionMultiplier = 1.0;
+      if (_useProgressiveMode) {
+        final progressive = ProgressiveDifficulty(
+          questionsAnswered: _totalQuestionsAnswered,
+          correctAnswers: _progressiveCorrectCount,
+          totalQuestions: _totalQuestionsAnswered,
+          baseDifficulty: _baseDifficulty,
+        );
+        progressionMultiplier = progressive.progressionMultiplier;
+      }
+      
       int streakBonus = (_currentStreak / 5).floor() * 5; // +5 XP every 5 streak
       int comboBonus = _comboCount >= 3 ? _comboCount * 2 : 0; // +2 XP per combo after 3
       int speedBonus = timeSpent <= 3 ? 5 : (timeSpent <= 5 ? 2 : 0);
-      int xpEarned = baseXp + streakBonus + comboBonus + speedBonus;
+      int xpEarned = ((baseXp + streakBonus + comboBonus + speedBonus) * progressionMultiplier).round();
       
       _totalScore += xpEarned;
       _totalXpEarned += xpEarned;
@@ -250,7 +332,10 @@ class GameProvider extends ChangeNotifier {
       timeSpent: timeSpent,
     ));
 
-    _updateAdaptiveDifficulty(isCorrect);
+    // Only use adaptive difficulty in non-progressive mode
+    if (!_useProgressiveMode) {
+      _updateAdaptiveDifficulty(isCorrect);
+    }
     _showResult = true;
     notifyListeners();
   }
@@ -299,6 +384,9 @@ class GameProvider extends ChangeNotifier {
     _bestStreakThisSession = 0;
     _comboCount = 0;
     _selectedDifficulty = _baseDifficulty;
+    // Reset progressive tracking
+    _totalQuestionsAnswered = 0;
+    _progressiveCorrectCount = 0;
     notifyListeners();
   }
 
