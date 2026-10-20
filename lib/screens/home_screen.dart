@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui'; // For BackdropFilter
 import '../providers/app_provider.dart';
 import '../providers/game_provider.dart';
 import '../models/math_question.dart';
@@ -28,7 +29,6 @@ class HomeScreen extends StatelessWidget {
                 stretch: true,
                 backgroundColor: Colors.transparent,
                 flexibleSpace: FlexibleSpaceBar(
-                  title: _buildAppBarTitle(context, isDark),
                   titlePadding: const EdgeInsets.only(left: 16, bottom: 12),
                   background: _buildHeaderBackground(context, isDark, stats),
                 ),
@@ -101,6 +101,35 @@ class HomeScreen extends StatelessWidget {
       ),
       child: Stack(
         children: [
+          // App Title at top
+          Positioned(
+            top: 50,
+            left: 16,
+            right: 16,
+            child: ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: isDark
+                    ? [Colors.white, const Color(0xFFE0E7FF)]
+                    : [const Color(0xFF1E293B), const Color(0xFF312E81)],
+              ).createShader(bounds),
+              child: const Text(
+                'Brain Booster',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -0.5,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           // Decorative shapes
           Positioned(
             top: -60,
@@ -151,28 +180,38 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildHeaderBrainStrength(BuildContext context, UserStats stats, Color strengthColor, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: isDark 
-            ? Colors.white.withValues(alpha: 0.1) 
-            : Colors.white.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark 
-              ? Colors.white.withValues(alpha: 0.2) 
-              : Colors.white.withValues(alpha: 0.3),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: strengthColor.withValues(alpha: 0.2),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isDark 
+                ? Colors.white.withValues(alpha: 0.08) 
+                : Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark 
+                  ? Colors.white.withValues(alpha: 0.15) 
+                  : Colors.white.withValues(alpha: 0.25),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: strengthColor.withValues(alpha: 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+                spreadRadius: -4,
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
+          child: Row(
         children: [
           // Brain icon with strength color
           Container(
@@ -306,26 +345,9 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildAppBarTitle(BuildContext context, bool isDark) {
-    return ShaderMask(
-      shaderCallback: (bounds) => LinearGradient(
-        colors: isDark
-            ? [Colors.white, const Color(0xFFE0E7FF)]
-            : [const Color(0xFF1E293B), const Color(0xFF312E81)],
-      ).createShader(bounds),
-      child: const Text(
-        'Brain Booster',
-        style: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w800,
-          color: Colors.white,
-          letterSpacing: -0.5,
-        ),
-      ),
-    );
+    ),
+  ),
+);
   }
 
   List<Widget> _buildAppBarActions(BuildContext context, AppProvider appProvider, bool isDark) {
