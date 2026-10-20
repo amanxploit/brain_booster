@@ -6,6 +6,7 @@ import '../providers/app_provider.dart';
 import '../models/math_question.dart';
 import '../models/user_stats.dart';
 import '../services/storage_service.dart';
+import '../services/feedback_service.dart';
 import '../widgets/widgets.dart';
 import '../theme/app_theme.dart';
 
@@ -67,7 +68,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _handleTimeUp(GameProvider gameProvider) {
+  void _handleTimeUp(GameProvider gameProvider) async {
+    final appProvider = context.read<AppProvider>();
     final question = gameProvider.currentQuestion!;
     int wrongAnswer = question.options.firstWhere(
       (opt) => opt != question.correctAnswer,
@@ -75,6 +77,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
     gameProvider.selectAnswer(wrongAnswer);
     gameProvider.submitAnswer(_secondsElapsed);
+
+    // Trigger wrong answer feedback for time up
+    if (appProvider.settings.soundEnabled) {
+      await FeedbackService().playWrongSound();
+    }
+    if (appProvider.settings.vibrationEnabled) {
+      await FeedbackService().vibrateWrong();
+    }
   }
 
   void _resetTimer(GameProvider gameProvider) {
@@ -859,7 +869,36 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         height: 56,
         child: ElevatedButton(
           onPressed: gameProvider.selectedAnswer != -1
-              ? () => gameProvider.submitAnswer(_secondsElapsed)
+              ? () async {
+                  final appProvider = context.read<AppProvider>();
+                  final wasCorrect = gameProvider.selectedAnswer == gameProvider.currentQuestion?.correctAnswer;
+                  final previousStreak = gameProvider.currentStreak;
+                  
+                  gameProvider.submitAnswer(_secondsElapsed);
+                  
+                  // Trigger feedback after state updates
+                  if (wasCorrect) {
+                    if (appProvider.settings.soundEnabled) {
+                      await FeedbackService().playCorrectSound();
+                    }
+                    if (appProvider.settings.vibrationEnabled) {
+                      // Check for streak milestones (5, 10, 15, 20...)
+                      final newStreak = gameProvider.currentStreak;
+                      if (newStreak > previousStreak && newStreak % 5 == 0) {
+                        await FeedbackService().vibrateStreak(); // Stronger vibration for milestones
+                      } else {
+                        await FeedbackService().vibrateCorrect();
+                      }
+                    }
+                  } else {
+                    if (appProvider.settings.soundEnabled) {
+                      await FeedbackService().playWrongSound();
+                    }
+                    if (appProvider.settings.vibrationEnabled) {
+                      await FeedbackService().vibrateWrong();
+                    }
+                  }
+                }
               : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.primary,
