@@ -100,13 +100,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             : (gameProvider.currentQuestionIndex == gameProvider.questionsPerSession - 1);
         final progress = gameProvider.progress;
 
-        if (gameProvider.isGameActive && _timer == null && gameProvider.timeLimit > 0 && !gameProvider.showResult) {
+        // Start timer when: game active, no timer running, time limit set, not showing result
+        if (gameProvider.isGameActive && 
+            _timer == null && 
+            gameProvider.timeLimit > 0 && 
+            !gameProvider.showResult) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _startTimer(gameProvider);
+            if (mounted) _startTimer(gameProvider);
           });
         }
 
-        if (!gameProvider.showResult && _timer != null) {
+        // Reset timer when showing result (answer submitted or time up)
+        if (gameProvider.showResult && _timer != null) {
           _resetTimer(gameProvider);
         }
 

@@ -14,15 +14,22 @@ class TimerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Don't show timer if no time limit
+    if (timeLimit <= 0) return const SizedBox.shrink();
+
     final remaining = timeLimit - timeElapsed;
     final progress = timeElapsed / timeLimit;
     final isWarning = progress > 0.7;
     final isCritical = progress > 0.9;
 
     Color progressColor;
-    if (isCritical) progressColor = Colors.red;
-    else if (isWarning) progressColor = Colors.orange;
-    else progressColor = Theme.of(context).colorScheme.primary;
+    if (isCritical) {
+      progressColor = Colors.red;
+    } else if (isWarning) {
+      progressColor = Colors.orange;
+    } else {
+      progressColor = Theme.of(context).colorScheme.primary;
+    }
 
     return AnimatedBuilder(
       animation: pulseAnimation,
@@ -32,9 +39,9 @@ class TimerWidget extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: progressColor.withOpacity(0.15),
+              color: progressColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: progressColor.withOpacity(0.5)),
+              border: Border.all(color: progressColor.withValues(alpha: 0.5)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -62,7 +69,7 @@ class TimerWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(3),
                     child: LinearProgressIndicator(
                       value: 1 - progress.clamp(0.0, 1.0),
-                      backgroundColor: progressColor.withOpacity(0.2),
+                      backgroundColor: progressColor.withValues(alpha: 0.2),
                       valueColor: AlwaysStoppedAnimation<Color>(progressColor),
                     ),
                   ),
