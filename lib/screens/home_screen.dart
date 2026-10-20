@@ -5,7 +5,6 @@ import '../providers/game_provider.dart';
 import '../models/math_question.dart';
 import '../models/user_stats.dart';
 import '../widgets/widgets.dart';
-import '../theme/app_theme.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -16,42 +15,24 @@ class HomeScreen extends StatelessWidget {
       builder: (context, appProvider, _) {
         final stats = appProvider.userStats;
         final gameProvider = context.watch<GameProvider>();
+        final isDark = appProvider.settings.isDarkMode;
         
         return Scaffold(
           body: CustomScrollView(
             slivers: [
-              // App Bar
+              // Modern App Bar with Gradient Header
               SliverAppBar(
-                expandedHeight: 120,
+                expandedHeight: 140,
                 floating: false,
                 pinned: true,
+                stretch: true,
+                backgroundColor: Colors.transparent,
                 flexibleSpace: FlexibleSpaceBar(
-                  title: const Text('Brain Booster'),
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Theme.of(context).colorScheme.primary,
-                          Theme.of(context).colorScheme.secondary,
-                        ],
-                      ),
-                    ),
-                  ),
+                  title: _buildAppBarTitle(context, isDark),
+                  titlePadding: const EdgeInsets.only(left: 16, bottom: 12),
+                  background: _buildHeaderBackground(context, isDark, stats),
                 ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.history),
-                    onPressed: () => Navigator.pushNamed(context, '/history'),
-                    tooltip: 'History',
-                  ),
-                  IconButton(
-                    icon: Icon(appProvider.settings.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-                    onPressed: () => appProvider.toggleDarkMode(),
-                    tooltip: 'Toggle Theme',
-                  ),
-                ],
+                actions: _buildAppBarActions(context, appProvider, isDark),
               ),
               
               // Content
@@ -61,7 +42,7 @@ class HomeScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Welcome Section
+                      // Welcome Section (now more compact since header has stats)
                       _buildWelcomeSection(context, stats),
                       const SizedBox(height: 24),
                       
@@ -81,7 +62,7 @@ class HomeScreen extends StatelessWidget {
                       _buildQuickActions(context, gameProvider),
                       const SizedBox(height: 24),
                       
-                      // Brain Strength
+                      // Brain Strength (moved to header, keep for detail view)
                       _buildBrainStrength(context, stats),
                     ],
                   ),
@@ -94,28 +75,356 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildHeaderBackground(BuildContext context, bool isDark, UserStats stats) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+    final strengthColor = _getStrengthColor(stats.brainStrength);
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  const Color(0xFF1E1B4B), // Indigo 900
+                  const Color(0xFF312E81), // Indigo 800
+                  const Color(0xFF0F172A), // Slate 900
+                ]
+              : [
+                  primaryColor.withValues(alpha: 0.9),
+                  secondaryColor.withValues(alpha: 0.8),
+                  primaryColor.withValues(alpha: 0.7),
+                ],
+          stops: const [0.0, 0.5, 1.0],
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Decorative shapes
+          Positioned(
+            top: -60,
+            right: -60,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    strengthColor.withValues(alpha: 0.3),
+                    strengthColor.withValues(alpha: 0.1),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -40,
+            left: -40,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    secondaryColor.withValues(alpha: 0.2),
+                    secondaryColor.withValues(alpha: 0.05),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Brain strength indicator at bottom
+          Positioned(
+            bottom: 16,
+            left: 16,
+            right: 16,
+            child: _buildHeaderBrainStrength(context, stats, strengthColor, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderBrainStrength(BuildContext context, UserStats stats, Color strengthColor, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isDark 
+            ? Colors.white.withValues(alpha: 0.1) 
+            : Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark 
+              ? Colors.white.withValues(alpha: 0.2) 
+              : Colors.white.withValues(alpha: 0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: strengthColor.withValues(alpha: 0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Brain icon with strength color
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  strengthColor,
+                  strengthColor.withValues(alpha: 0.7),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: strengthColor.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.psychology,
+              size: 22,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Strength info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Brain Power',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark 
+                            ? Colors.white.withValues(alpha: 0.8) 
+                            : Colors.white.withValues(alpha: 0.9),
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: strengthColor,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        stats.brainStrengthLabel.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // Progress bar
+                Stack(
+                  children: [
+                    Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: isDark 
+                            ? Colors.white.withValues(alpha: 0.2) 
+                            : Colors.white.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    FractionallySizedBox(
+                      widthFactor: stats.brainStrength / 100,
+                      child: Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              strengthColor,
+                              strengthColor.withValues(alpha: 0.8),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Percentage
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${stats.brainStrength}%',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                      color: strengthColor.withValues(alpha: 0.5),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${stats.currentStreak} 🔥 streak',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: isDark 
+                      ? Colors.white.withValues(alpha: 0.7) 
+                      : Colors.white.withValues(alpha: 0.8),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAppBarTitle(BuildContext context, bool isDark) {
+    return ShaderMask(
+      shaderCallback: (bounds) => LinearGradient(
+        colors: isDark
+            ? [Colors.white, const Color(0xFFE0E7FF)]
+            : [const Color(0xFF1E293B), const Color(0xFF312E81)],
+      ).createShader(bounds),
+      child: const Text(
+        'Brain Booster',
+        style: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          letterSpacing: -0.5,
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildAppBarActions(BuildContext context, AppProvider appProvider, bool isDark) {
+    return [
+      // History button with badge
+      Stack(
+        children: [
+          IconButton(
+            icon: Icon(
+              Icons.history_rounded,
+              color: isDark ? Colors.white : const Color(0xFF1E293B),
+              size: 26,
+            ),
+            onPressed: () => Navigator.pushNamed(context, '/history'),
+            tooltip: 'History',
+          ),
+        ],
+      ),
+      // Theme toggle with animated icon
+      Container(
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          color: isDark 
+              ? Colors.white.withValues(alpha: 0.15) 
+              : Colors.white.withValues(alpha: 0.25),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark 
+                ? Colors.white.withValues(alpha: 0.2) 
+                : Colors.white.withValues(alpha: 0.3),
+          ),
+        ),
+        child: IconButton(
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) => RotationTransition(
+              turns: animation,
+              child: ScaleTransition(scale: animation, child: child),
+            ),
+            child: Icon(
+              appProvider.settings.isDarkMode 
+                  ? Icons.wb_sunny_rounded 
+                  : Icons.nights_stay_rounded,
+              key: ValueKey(appProvider.settings.isDarkMode),
+              color: isDark ? Colors.white : const Color(0xFF1E293B),
+              size: 24,
+            ),
+          ),
+          onPressed: () => appProvider.toggleDarkMode(),
+          tooltip: appProvider.settings.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+        ),
+      ),
+    ];
+  }
+
   Widget _buildWelcomeSection(BuildContext context, UserStats stats) {
     final hour = DateTime.now().hour;
     String greeting;
-    if (hour < 12) greeting = 'Good Morning';
-    else if (hour < 17) greeting = 'Good Afternoon';
-    else greeting = 'Good Evening';
+    String emoji;
+    if (hour < 12) {
+      greeting = 'Good Morning';
+      emoji = '☀️';
+    } else if (hour < 17) {
+      greeting = 'Good Afternoon';
+      emoji = '🌤️';
+    } else {
+      greeting = 'Good Evening';
+      emoji = '🌙';
+    }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.primary.withOpacity(0.15),
-            Theme.of(context).colorScheme.secondary.withOpacity(0.1),
-          ],
+          colors: isDark
+              ? [
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                  Theme.of(context).colorScheme.secondary.withValues(alpha: 0.15),
+                ]
+              : [
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                  Theme.of(context).colorScheme.secondary.withValues(alpha: 0.08),
+                ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.3 : 0.15),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: isDark ? 0.15 : 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -123,101 +432,93 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '$greeting! 👋',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Ready to train your brain?',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                  ),
-                ),
-                const SizedBox(height: 12),
                 Row(
                   children: [
-                    _buildMiniStat(
-                      context,
-                      Icons.psychology,
-                      '${stats.brainStrength}%',
-                      'Brain Power',
+                    Text(
+                      emoji,
+                      style: const TextStyle(fontSize: 24),
                     ),
-                    const SizedBox(width: 16),
-                    _buildMiniStat(
-                      context,
-                      Icons.local_fire_department,
-                      '${stats.currentStreak}',
-                      'Day Streak',
-                    ),
-                    const SizedBox(width: 16),
-                    _buildMiniStat(
-                      context,
-                      Icons.star,
-                      '${stats.totalScore}',
-                      'Total Score',
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '$greeting!',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Ready to boost your brain?',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
                 ),
               ],
             ),
           ),
-          Container(
-            width: 80,
-            height: 80,
+          // Animated brain icon
+          _buildAnimatedBrainIcon(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimatedBrainIcon(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 1500),
+      curve: Curves.elasticOut,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            width: 70,
+            height: 70,
             decoration: BoxDecoration(
               gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
                 colors: [
-                  Theme.of(context).colorScheme.primary,
+                  primaryColor,
                   Theme.of(context).colorScheme.secondary,
                 ],
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
+                  color: primaryColor.withValues(alpha: isDark ? 0.4 : 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                  spreadRadius: 2,
                 ),
               ],
             ),
             child: const Icon(
-              Icons.psychology,
-              size: 40,
+              Icons.psychology_rounded,
+              size: 34,
               color: Colors.white,
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildMiniStat(BuildContext context, IconData icon, String value, String label) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, color: Theme.of(context).colorScheme.primary, size: 20),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).textTheme.bodySmall?.color,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
+  Color _getStrengthColor(int strength) {
+    if (strength >= 90) return const Color(0xFF7C3AED); // Purple
+    if (strength >= 75) return const Color(0xFF3B82F6); // Blue
+    if (strength >= 60) return const Color(0xFF10B981); // Emerald
+    if (strength >= 40) return const Color(0xFFF59E0B); // Amber
+    if (strength >= 20) return const Color(0xFFF97316); // Orange
+    return const Color(0xFFEF4444); // Red
   }
 
   Widget _buildQuickStats(BuildContext context, UserStats stats) {
@@ -454,7 +755,7 @@ class HomeScreen extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -466,7 +767,7 @@ class HomeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 24),
@@ -503,7 +804,7 @@ class HomeScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _getStrengthColor(stats.brainStrength).withOpacity(0.15),
+                color: _getStrengthColor(stats.brainStrength).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -592,14 +893,5 @@ class HomeScreen extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  Color _getStrengthColor(int strength) {
-    if (strength >= 90) return Colors.purple;
-    if (strength >= 75) return Colors.blue;
-    if (strength >= 60) return Colors.green;
-    if (strength >= 40) return Colors.orange;
-    if (strength >= 20) return Colors.deepOrange;
-    return Colors.red;
   }
 }
