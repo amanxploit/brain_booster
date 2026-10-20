@@ -42,19 +42,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _startTimer(GameProvider gameProvider) {
-    if (gameProvider.timeLimit > 0) {
+    if (gameProvider.timeLimit > 0 && _timer == null) {
+      _secondsElapsed = 0;
+      gameProvider.updateTimeSpent(0);
       _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
         if (!mounted) {
           timer.cancel();
+          _timer = null;
           return;
         }
         setState(() {
           _secondsElapsed++;
           gameProvider.updateTimeSpent(_secondsElapsed);
         });
-        
+
         if (_secondsElapsed >= gameProvider.timeLimit) {
           timer.cancel();
+          _timer = null;
           if (gameProvider.selectedAnswer == -1 && gameProvider.isGameActive && !gameProvider.showResult) {
             _handleTimeUp(gameProvider);
           }
@@ -65,7 +69,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _handleTimeUp(GameProvider gameProvider) {
     final question = gameProvider.currentQuestion!;
-    // Auto-select a wrong answer to show result
     int wrongAnswer = question.options.firstWhere(
       (opt) => opt != question.correctAnswer,
       orElse: () => question.correctAnswer + 1,
@@ -76,11 +79,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _resetTimer(GameProvider gameProvider) {
     _timer?.cancel();
+    _timer = null;
     _secondsElapsed = 0;
     gameProvider.updateTimeSpent(0);
-    if (gameProvider.isGameActive && gameProvider.timeLimit > 0) {
-      _startTimer(gameProvider);
-    }
   }
 
   @override
@@ -94,21 +95,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         final question = gameProvider.currentQuestion;
         if (question == null) return _buildGameSetup(context, gameProvider);
 
-        // In endless mode, there's never a "last question" - keep going until user quits
-        final isLastQuestion = gameProvider.isEndlessMode 
-            ? false 
+        final isLastQuestion = gameProvider.isEndlessMode
+            ? false
             : (gameProvider.currentQuestionIndex == gameProvider.questionsPerSession - 1);
         final progress = gameProvider.progress;
 
-        // Start timer when game becomes active
-        if (gameProvider.isGameActive && _timer == null && gameProvider.timeLimit > 0) {
+        if (gameProvider.isGameActive && _timer == null && gameProvider.timeLimit > 0 && !gameProvider.showResult) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _startTimer(gameProvider);
           });
         }
 
-        // Reset timer when question changes
-        if (gameProvider.showResult && _timer != null) {
+        if (!gameProvider.showResult && _timer != null) {
           _resetTimer(gameProvider);
         }
 
@@ -136,26 +134,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // Progress Bar
                   _buildProgressSection(context, gameProvider, progress),
                   const SizedBox(height: 24),
-                  
-                  // Score & Stats
                   _buildScoreSection(context, gameProvider),
                   const SizedBox(height: 32),
-                  
-                  // Question Card
                   _buildQuestionCard(context, question, gameProvider),
                   const SizedBox(height: 24),
-                  
-                  // Answer Options
                   _buildAnswerOptions(context, question, gameProvider),
                   const SizedBox(height: 24),
-                  
-                  // Action Button
                   _buildActionButton(context, gameProvider, isLastQuestion),
-                  
-                  // Bottom padding for safe scrolling
                   const SizedBox(height: 16),
                 ],
               ),
@@ -199,8 +186,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 40),
-              
-              // Operation Selector
+
               Text(
                 'Operation',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -228,8 +214,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 }).toList(),
               ),
               const SizedBox(height: 24),
-              
-              // Difficulty Selector
+
               Text(
                 'Difficulty',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -257,8 +242,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 }).toList(),
               ),
               const SizedBox(height: 24),
-              
-              // Settings
+
               Row(
                 children: [
                   Expanded(
@@ -282,10 +266,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 32),
-              
-              // Start Button
+
               SizedBox(
                 height: 56,
                 child: ElevatedButton.icon(
@@ -303,7 +286,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 16),
             ],
           ),
@@ -344,7 +327,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           builder: (context, setState) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Endless mode toggle
               SwitchListTile(
                 title: const Text('Endless Mode'),
                 subtitle: const Text('Play unlimited questions'),
@@ -458,36 +440,57 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildScoreSection(BuildContext context, GameProvider gameProvider) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _buildScoreCard(
-            context,
-            'Correct',
-            gameProvider.correctCount.toString(),
-            Icons.check_circle,
-            Colors.green,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _buildScoreCard(
+                context,
+                'Correct',
+                gameProvider.correctCount.toString(),
+                Icons.check_circle,
+                Colors.green,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildScoreCard(
+                context,
+                'Wrong',
+                gameProvider.wrongCount.toString(),
+                Icons.cancel,
+                Colors.red,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildScoreCard(
+                context,
+                'Score',
+                gameProvider.totalScore.toString(),
+                Icons.star,
+                Theme.of(context).colorScheme.tertiary,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildScoreCard(
-            context,
-            'Wrong',
-            gameProvider.wrongCount.toString(),
-            Icons.cancel,
-            Colors.red,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildScoreCard(
-            context,
-            'Score',
-            gameProvider.totalScore.toString(),
-            Icons.star,
-            Theme.of(context).colorScheme.tertiary,
-          ),
+
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStreakCard(context, gameProvider),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildComboCard(context, gameProvider),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildLevelCard(context, gameProvider),
+            ),
+          ],
         ),
       ],
     );
@@ -497,9 +500,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? Colors.transparent),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -521,89 +531,260 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildQuestionCard(BuildContext context, MathQuestion question, GameProvider gameProvider) {
-    return AnimatedScale(
-      scale: gameProvider.showResult ? 0.98 : 1.0,
-      duration: const Duration(milliseconds: 200),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(32),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Theme.of(context).colorScheme.primary.withOpacity(0.15),
-              Theme.of(context).colorScheme.secondary.withOpacity(0.1),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: gameProvider.showResult
-                ? (gameProvider.lastAnswerCorrect ? Colors.green : Colors.red).withOpacity(0.5)
-                : Theme.of(context).colorScheme.primary.withOpacity(0.2),
-            width: 2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
+  Widget _buildStreakCard(BuildContext context, GameProvider gameProvider) {
+    final isHot = gameProvider.isOnFire;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isHot ? Colors.orange.withOpacity(0.2) : Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isHot ? Colors.orange : Theme.of(context).colorScheme.primary.withOpacity(0.3),
+          width: isHot ? 2 : 1,
         ),
-        child: Column(
-          children: [
-            Text(
-              question.questionText,
-              style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-                fontSize: 48,
-                letterSpacing: 4,
+        boxShadow: isHot ? [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.4),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ] : null,
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                isHot ? Icons.local_fire_department : Icons.trending_up,
+                color: isHot ? Colors.orange : Theme.of(context).colorScheme.primary,
+                size: 20,
               ),
-              textAlign: TextAlign.center,
-            ),
-            if (gameProvider.showResult) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                decoration: BoxDecoration(
-                  color: gameProvider.lastAnswerCorrect ? Colors.green : Colors.red,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      gameProvider.lastAnswerCorrect ? Icons.check : Icons.close,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      gameProvider.lastAnswerCorrect ? 'Correct!' : 'Wrong!',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
+              const SizedBox(width: 4),
               Text(
-                gameProvider.lastAnswerCorrect
-                    ? 'Well done! +${gameProvider.selectedDifficulty.pointsMultiplier * 10} points'
-                    : 'The answer was ${question.correctAnswer}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: gameProvider.lastAnswerCorrect ? Colors.green : Colors.red,
-                  fontWeight: FontWeight.w500,
+                'Streak',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
+          ),
+          Text(
+            '${gameProvider.currentStreak}',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: isHot ? Colors.orange : Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          if (gameProvider.bestStreakThisSession > gameProvider.currentStreak)
+            Text(
+              'Best: ${gameProvider.bestStreakThisSession}',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.outline,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComboCard(BuildContext context, GameProvider gameProvider) {
+    final isCombo = gameProvider.isComboActive;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isCombo ? Colors.purple.withOpacity(0.2) : Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCombo ? Colors.purple : Theme.of(context).colorScheme.secondary.withOpacity(0.3),
+          width: isCombo ? 2 : 1,
+        ),
+        boxShadow: isCombo ? [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.4),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ] : null,
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.flash_on,
+                color: isCombo ? Colors.purple : Theme.of(context).colorScheme.secondary,
+                size: 20,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Combo',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            'x${gameProvider.comboCount}',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: isCombo ? Colors.purple : Theme.of(context).colorScheme.secondary,
+            ),
+          ),
+          if (isCombo)
+            Text(
+              '+${gameProvider.comboCount * 2} XP',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Colors.purple,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLevelCard(BuildContext context, GameProvider gameProvider) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.tertiary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).colorScheme.tertiary.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.emoji_events,
+                color: Theme.of(context).colorScheme.tertiary,
+                size: 20,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Level',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '${gameProvider.currentLevel}',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.tertiary,
+            ),
+          ),
+          Text(
+            '${gameProvider.totalXpEarned} XP',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionCard(BuildContext context, MathQuestion question, GameProvider gameProvider) {
+    final flashColor = gameProvider.showResult && gameProvider.lastAnswerCorrect
+        ? Colors.green.withOpacity(0.3)
+        : Colors.transparent;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).colorScheme.primary.withOpacity(0.15),
+            Theme.of(context).colorScheme.secondary.withOpacity(0.1),
           ],
         ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: gameProvider.showResult
+              ? (gameProvider.lastAnswerCorrect ? Colors.green : Colors.red).withOpacity(0.5)
+              : Theme.of(context).colorScheme.primary.withOpacity(0.2),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+          if (flashColor != Colors.transparent)
+            BoxShadow(
+              color: flashColor,
+              blurRadius: 30,
+              spreadRadius: 10,
+            )
+          else
+            const BoxShadow(
+              color: Colors.transparent,
+              blurRadius: 0,
+            ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            question.questionText,
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: 48,
+              letterSpacing: 4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (gameProvider.showResult) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: gameProvider.lastAnswerCorrect ? Colors.green : Colors.red,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    gameProvider.lastAnswerCorrect ? Icons.check : Icons.close,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    gameProvider.lastAnswerCorrect ? 'Correct!' : 'Wrong!',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              gameProvider.lastAnswerCorrect
+                  ? 'Well done! +${gameProvider.selectedDifficulty.pointsMultiplier * 10} points'
+                  : 'The answer was ${question.correctAnswer}',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: gameProvider.lastAnswerCorrect ? Colors.green : Colors.red,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -720,11 +901,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _finishGame(BuildContext context, GameProvider gameProvider) async {
     _timer?.cancel();
-    
+
     final session = gameProvider.createSession();
     final appProvider = context.read<AppProvider>();
-    
-    // Record each answer in user stats
+
     for (final result in session.questionResults) {
       appProvider.recordAnswer(
         isCorrect: result.isCorrect,
@@ -733,12 +913,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         timeSpent: result.timeSpent,
       );
     }
-    
+
     await appProvider.saveGameSession(session);
-    
+
     if (!mounted) return;
-    
-    // Show results dialog
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -809,6 +988,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   _buildResultRow(context, 'Time', '${session.timeSpent}s', Icons.timer),
                   const Divider(height: 16),
                   _buildResultRow(context, 'Avg/Question', '${(session.timeSpent / session.totalQuestions).toStringAsFixed(1)}s', Icons.speed),
+                  const Divider(height: 16),
+                  _buildResultRow(context, 'Best Streak', '${gameProvider.bestStreakThisSession}', Icons.local_fire_department),
+                  const Divider(height: 16),
+                  _buildResultRow(context, 'Max Combo', 'x${gameProvider.comboCount}', Icons.flash_on),
+                  const Divider(height: 16),
+                  _buildResultRow(context, 'Level Reached', '${gameProvider.currentLevel}', Icons.emoji_events),
                 ],
               ),
             ),

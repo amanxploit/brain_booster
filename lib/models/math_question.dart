@@ -77,16 +77,48 @@ class MathQuestion {
         correctAnswer = operand1 - operand2;
         break;
       case MathOperation.multiplication:
-        final maxFactor = (difficulty.maxValue / 10).floor();
-        operand1 = randomInRange(difficulty.minValue, maxFactor.clamp(difficulty.minValue, 20));
-        operand2 = randomInRange(difficulty.minValue, maxFactor.clamp(difficulty.minValue, 20));
+        // Better range for multiplication to avoid repetition
+        // Easy: 1-10 × 1-10, Medium: 2-12 × 2-12, Hard: 3-15 × 3-15, Expert: 5-20 × 5-20
+        int minFactor, maxFactor;
+        switch (difficulty) {
+          case Difficulty.easy:
+            minFactor = 1; maxFactor = 10;
+            break;
+          case Difficulty.medium:
+            minFactor = 2; maxFactor = 12;
+            break;
+          case Difficulty.hard:
+            minFactor = 3; maxFactor = 15;
+            break;
+          case Difficulty.expert:
+            minFactor = 5; maxFactor = 20;
+            break;
+        }
+        operand1 = randomInRange(minFactor, maxFactor);
+        operand2 = randomInRange(minFactor, maxFactor);
         correctAnswer = operand1 * operand2;
         break;
       case MathOperation.division:
-        operand2 = randomInRange(difficulty.minValue, (difficulty.maxValue / 10).floor().clamp(difficulty.minValue, 20));
+        // Division: generate dividend and divisor, ensure clean division
+        int minDiv, maxDiv;
+        switch (difficulty) {
+          case Difficulty.easy:
+            minDiv = 1; maxDiv = 10;
+            break;
+          case Difficulty.medium:
+            minDiv = 2; maxDiv = 12;
+            break;
+          case Difficulty.hard:
+            minDiv = 3; maxDiv = 15;
+            break;
+          case Difficulty.expert:
+            minDiv = 5; maxDiv = 20;
+            break;
+        }
+        operand2 = randomInRange(minDiv, maxDiv); // divisor
         if (operand2 == 0) operand2 = 1;
-        correctAnswer = randomInRange(difficulty.minValue, (difficulty.maxValue / 10).floor().clamp(difficulty.minValue, 20));
-        operand1 = correctAnswer * operand2;
+        correctAnswer = randomInRange(minDiv, maxDiv); // quotient
+        operand1 = correctAnswer * operand2; // dividend
         break;
       case MathOperation.modulo:
         operand1 = randomInRange(difficulty.minValue, difficulty.maxValue);
