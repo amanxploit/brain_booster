@@ -1,5 +1,11 @@
 # Brain Booster 🧠
 
+<div align="center">
+  <img src="assets/images/logo.jpeg" alt="Brain Booster Logo" width="120" height="120" style="border-radius: 24px;">
+  <h1>Brain Booster</h1>
+  <p><em>A powerful brain training Flutter app for fast mental calculations with comprehensive dashboard tracking.</em></p>
+</div>
+
 A powerful brain training Flutter app for fast mental calculations with comprehensive dashboard tracking. Built with modern Flutter architecture using Provider for state management. Features a **completely redesigned UI/UX** with a unified design system, dark/light themes, and premium interactions.
 
 ---
