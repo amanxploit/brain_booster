@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../models/user_stats.dart';
 import '../models/math_question.dart';
 import '../models/app_settings.dart';
@@ -19,12 +20,48 @@ class AppProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _storage = await StorageService.getInstance();
-    _userStats = await _storage!.getUserStats();
-    _settings = await _storage!.getSettings();
-
-    _isLoading = false;
-    notifyListeners();
+    try {
+      // Add timeout to prevent hanging
+      debugPrint('Initializing StorageService...');
+      _storage = await StorageService.getInstance().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('StorageService.getInstance() timed out');
+          throw TimeoutException('StorageService.getInstance() timed out');
+        },
+      );
+      
+      debugPrint('StorageService initialized, loading user stats...');
+      // Load user stats with timeout
+      _userStats = await _storage!.getUserStats().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('getUserStats timed out, using defaults');
+          return UserStats();
+        },
+      );
+      
+      debugPrint('User stats loaded, loading settings...');
+      // Load settings with timeout
+      _settings = await _storage!.getSettings().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('getSettings timed out, using defaults');
+          return AppSettings();
+        },
+      );
+      
+      debugPrint('AppProvider initialized successfully');
+    } catch (e, stack) {
+      debugPrint('AppProvider initialization error: $e');
+      debugPrint('Stack trace: $stack');
+      // Ensure we have valid defaults even on error
+      _userStats = UserStats();
+      _settings = AppSettings();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> updateSettings(AppSettings newSettings) async {
