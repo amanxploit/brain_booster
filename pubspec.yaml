@@ -41,4 +41,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/sounds/
-    - assets/images/logo.jpeg
