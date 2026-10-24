@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui' as ui;
 import 'providers/app_provider.dart';
 import 'providers/game_provider.dart';
+import 'models/app_settings.dart';
+import 'models/user_stats.dart';
 import 'theme/app_theme.dart';
 import 'screens/home_screen.dart';
 import 'screens/game_screen.dart';
@@ -12,8 +15,20 @@ import 'screens/history_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Setup error handling
+  FlutterError.onError = (FlutterErrorDetails details) {
+    debugPrint('Flutter Error: ${details.exception}');
+    debugPrint('Stack trace: ${details.stack}');
+  };
+  
+  ui.PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Platform Error: $error');
+    debugPrint('Stack trace: $stack');
+    return true;
+  };
+  
   final appProvider = AppProvider();
-  await appProvider.initialize();
+  await _initializeApp(appProvider);
   
   final gameProvider = GameProvider();
   gameProvider.initializeFromSettings(appProvider.settings);
@@ -34,6 +49,18 @@ void main() async {
   );
 }
 
+Future<void> _initializeApp(AppProvider appProvider) async {
+  try {
+    await appProvider.initialize();
+    debugPrint('App initialized successfully');
+  } catch (e, stack) {
+    debugPrint('App initialization failed: $e');
+    debugPrint('Stack trace: $stack');
+    // AppProvider handles the error internally, just ensure it's not loading
+    // The AppProvider will set isLoading to false and notify listeners
+  }
+}
+
 class BrainBoosterApp extends StatelessWidget {
   const BrainBoosterApp({super.key});
 
@@ -41,12 +68,24 @@ class BrainBoosterApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, appProvider, _) {
+        // Show loading screen while initializing
+        if (appProvider.isLoading) {
+          return MaterialApp(
+            title: 'Brain Booster',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.system,
+            home: const _LoadingScreen(),
+          );
+        }
+        
         return MaterialApp(
           title: 'Brain Booster',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
-          themeMode: appProvider.settings.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          themeMode: appProvider.settings?.isDarkMode == true ? ThemeMode.dark : ThemeMode.light,
           home: const MainNavigation(),
           routes: {
             '/game': (context) => const GameScreen(),
@@ -56,6 +95,29 @@ class BrainBoosterApp extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 24),
+            Text(
+              'Loading Brain Booster...',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
